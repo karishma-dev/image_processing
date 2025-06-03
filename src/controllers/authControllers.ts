@@ -12,6 +12,8 @@ import prisma from "../utils/client";
 import crypto from "crypto";
 import { comparePassword, hashPassword } from "../utils/password";
 import { attachCookiesToResponse, createTokenUser } from "../utils/jwt";
+import sendVerificationEmail from "../utils/sendVerificationEmail";
+import sendResetPasswordEmail from "../utils/sendResetPasswordEmail";
 
 export const register = async (req: Request, res: Response) => {
 	const { name, email, password, occupation } = req.body as RegisterInput;
@@ -54,6 +56,8 @@ export const register = async (req: Request, res: Response) => {
 			verificationTokenExpiresAt: verificationTokenExpiry,
 		},
 	});
+
+	await sendVerificationEmail(email, verificationToken);
 
 	res.status(201).json({
 		status: "success",
@@ -271,7 +275,7 @@ export const forgotPassword = async (req: Request, res: Response) => {
 		},
 	});
 
-	// email sending logic would go here
+	await sendResetPasswordEmail(user.name, email, resetToken);
 
 	res.status(200).json({
 		status: "success",

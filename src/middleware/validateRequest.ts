@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response } from "express";
+import { StatusCodes } from "http-status-codes";
 import { AnyZodObject } from "zod";
 
 export const validateRequest = (schema: AnyZodObject) => {
@@ -12,7 +13,7 @@ export const validateRequest = (schema: AnyZodObject) => {
 
 			next();
 		} catch (error: Error | any) {
-			res.status(400).json({
+			res.status(StatusCodes.BAD_REQUEST).json({
 				status: "error",
 				message: error instanceof Error ? error.message : "Validation error",
 				errors: error.errors || [],

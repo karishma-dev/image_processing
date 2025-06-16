@@ -10,6 +10,7 @@ import {
 } from "../controllers/authControllers";
 import { validateRequest } from "../middleware/validateRequest";
 import * as authValidators from "../validators/authValidator";
+import { authenticateUser } from "../middleware/authentication";
 
 const router = Router();
 
@@ -37,6 +38,7 @@ router.post(
 router.post("/logout", validateRequest(authValidators.logoutSchema), logout);
 router.post(
 	"/change-password",
+	authenticateUser,
 	validateRequest(authValidators.changePasswordSchema),
 	changePassword
 );

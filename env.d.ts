@@ -10,5 +10,6 @@ declare namespace NodeJS {
 		SMTP_USER: string;
 		SMTP_FROM: string;
 		SMTP_PASS: string;
+		S3_BUCKET_DOMAIN: string;
 	}
 }

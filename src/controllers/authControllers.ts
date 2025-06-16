@@ -14,6 +14,8 @@ import { comparePassword, hashPassword } from "../utils/password";
 import { attachCookiesToResponse, createTokenUser } from "../utils/jwt";
 import sendVerificationEmail from "../utils/sendVerificationEmail";
 import sendResetPasswordEmail from "../utils/sendResetPasswordEmail";
+import * as CustomError from "../errors";
+import { StatusCodes } from "http-status-codes";
 
 export const register = async (req: Request, res: Response) => {
 	const { name, email, password, occupation } = req.body as RegisterInput;
@@ -25,11 +27,7 @@ export const register = async (req: Request, res: Response) => {
 	});
 
 	if (existingUser) {
-		res.status(400).json({
-			status: "error",
-			message: "User with this email already exists",
-		});
-		return;
+		throw new CustomError.BadRequest("User with this email already exists");
 	}
 
 	const verificationToken = crypto.randomBytes(32).toString("hex");
@@ -39,11 +37,7 @@ export const register = async (req: Request, res: Response) => {
 	const hashedPassword = await hashPassword(password);
 
 	if (!hashedPassword) {
-		res.status(500).json({
-			status: "error",
-			message: "Error hashing password",
-		});
-		return;
+		throw new CustomError.InternalServerError("Error hashing password");
 	}
 
 	const user = await prisma.user.create({
@@ -59,7 +53,7 @@ export const register = async (req: Request, res: Response) => {
 
 	await sendVerificationEmail(email, verificationToken);
 
-	res.status(201).json({
+	res.status(StatusCodes.CREATED).json({
 		status: "success",
 		message: "Registration successful",
 		data: {
@@ -79,11 +73,7 @@ export const verifyEmail = async (req: Request, res: Response) => {
 	});
 
 	if (!user) {
-		res.status(400).json({
-			status: "error",
-			message: "Invalid or expired verification token",
-		});
-		return;
+		throw new CustomError.BadRequest("Invalid or expired verification token");
 	}
 
 	const currentTime = new Date();
@@ -91,18 +81,10 @@ export const verifyEmail = async (req: Request, res: Response) => {
 		user.verificationTokenExpiresAt &&
 		user.verificationTokenExpiresAt < currentTime
 	) {
-		res.status(400).json({
-			status: "error",
-			message: "Verification token has expired",
-		});
-		return;
+		throw new CustomError.BadRequest("Verification token has expired");
 	}
 	if (user.isVerified) {
-		res.status(400).json({
-			status: "error",
-			message: "Email is already verified",
-		});
-		return;
+		throw new CustomError.BadRequest("Email is already verified");
 	}
 
 	user.isVerified = true;
@@ -119,7 +101,7 @@ export const verifyEmail = async (req: Request, res: Response) => {
 		},
 	});
 
-	res.status(200).json({
+	res.status(StatusCodes.OK).json({
 		status: "success",
 		message: "Email verification successful",
 		data: {
@@ -138,26 +120,16 @@ export const login = async (req: Request, res: Response) => {
 		},
 	});
 	if (!user) {
-		res.status(400).json({
-			status: "error",
-			message: "Invalid email or password",
-		});
-		return;
+		throw new CustomError.BadRequest("Invalid email or password");
 	}
 	if (!user.isVerified) {
-		res.status(400).json({
-			status: "error",
-			message: "Email is not verified",
-		});
-		return;
+		throw new CustomError.BadRequest(
+			"Please verify your email before logging in"
+		);
 	}
 	const isPasswordValid = await comparePassword(password, user.password);
 	if (!isPasswordValid) {
-		res.status(400).json({
-			status: "error",
-			message: "Invalid email or password",
-		});
-		return;
+		throw new CustomError.BadRequest("Invalid email or password");
 	}
 
 	const tokenUser = createTokenUser(user);
@@ -174,16 +146,14 @@ export const login = async (req: Request, res: Response) => {
 		const { isValid } = existingToken;
 
 		if (!isValid) {
-			res.status(400).json({
-				status: "error",
-				message: "Invalid refresh token",
-			});
-			return;
+			throw new CustomError.UnauthenticatedError(
+				"Invalid refresh token, please login again"
+			);
 		}
 
 		refreshToken = existingToken.refreshToken;
 		attachCookiesToResponse(res, tokenUser, refreshToken);
-		res.status(200).json({
+		res.status(StatusCodes.OK).json({
 			status: "success",
 			message: "Login successful",
 			data: {
@@ -204,7 +174,7 @@ export const login = async (req: Request, res: Response) => {
 
 	attachCookiesToResponse(res, tokenUser, refreshToken);
 
-	res.status(200).json({
+	res.status(StatusCodes.OK).json({
 		status: "success",
 		message: "Login successful",
 		data: {
@@ -238,7 +208,7 @@ export const logout = async (req: Request, res: Response) => {
 		maxAge: 0,
 	});
 
-	res.status(200).json({
+	res.status(StatusCodes.OK).json({
 		message: "Logout successful",
 	});
 	return;
@@ -254,11 +224,7 @@ export const forgotPassword = async (req: Request, res: Response) => {
 	});
 
 	if (!user) {
-		res.status(400).json({
-			status: "error",
-			message: "User with this email does not exist",
-		});
-		return;
+		throw new CustomError.NotFoundError("User with this email does not exist");
 	}
 
 	const resetToken = crypto.randomBytes(32).toString("hex");
@@ -277,7 +243,7 @@ export const forgotPassword = async (req: Request, res: Response) => {
 
 	await sendResetPasswordEmail(user.name, email, resetToken);
 
-	res.status(200).json({
+	res.status(StatusCodes.OK).json({
 		status: "success",
 		message: "Password reset email sent successfully",
 	});
@@ -293,11 +259,7 @@ export const resetPassword = async (req: Request, res: Response) => {
 	});
 
 	if (!user) {
-		res.status(400).json({
-			status: "error",
-			message: "Invalid or expired password reset token",
-		});
-		return;
+		throw new CustomError.BadRequest("Invalid or expired password reset token");
 	}
 
 	const currentTime = new Date();
@@ -305,20 +267,12 @@ export const resetPassword = async (req: Request, res: Response) => {
 		user.passwordTokenExpiresAt &&
 		user.passwordTokenExpiresAt < currentTime
 	) {
-		res.status(400).json({
-			status: "error",
-			message: "Password reset token has expired",
-		});
-		return;
+		throw new CustomError.BadRequest("Password reset token has expired");
 	}
 
 	const hashedPassword = await hashPassword(password);
 	if (!hashedPassword) {
-		res.status(500).json({
-			status: "error",
-			message: "Error hashing password",
-		});
-		return;
+		throw new CustomError.InternalServerError("Error hashing password");
 	}
 
 	await prisma.user.update({
@@ -332,7 +286,7 @@ export const resetPassword = async (req: Request, res: Response) => {
 		},
 	});
 
-	res.status(200).json({
+	res.status(StatusCodes.OK).json({
 		status: "success",
 		message: "Password reset successful",
 	});
@@ -349,11 +303,7 @@ export const changePassword = async (req: Request, res: Response) => {
 	});
 
 	if (!user) {
-		res.status(400).json({
-			status: "error",
-			message: "User not found",
-		});
-		return;
+		throw new CustomError.NotFoundError("User not found");
 	}
 
 	const isCurrentPasswordValid = await comparePassword(
@@ -362,20 +312,12 @@ export const changePassword = async (req: Request, res: Response) => {
 	);
 
 	if (!isCurrentPasswordValid) {
-		res.status(400).json({
-			status: "error",
-			message: "Current password is incorrect",
-		});
-		return;
+		throw new CustomError.BadRequest("Current password is incorrect");
 	}
 
 	const hashedNewPassword = await hashPassword(newPassword);
 	if (!hashedNewPassword) {
-		res.status(500).json({
-			status: "error",
-			message: "Error hashing new password",
-		});
-		return;
+		throw new CustomError.InternalServerError("Error hashing new password");
 	}
 
 	await prisma.user.update({
@@ -387,7 +329,7 @@ export const changePassword = async (req: Request, res: Response) => {
 		},
 	});
 
-	res.status(200).json({
+	res.status(StatusCodes.OK).json({
 		status: "success",
 		message: "Password changed successfully",
 	});

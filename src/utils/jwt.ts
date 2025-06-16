@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken";
 
-export const createTokenUser = (user: { id: string }) => {
+export const createTokenUser = (user: { id: string }): { id: string } => {
 	return {
 		id: user.id,
 	};
@@ -27,8 +27,8 @@ export const createAccessToken = ({ payload }: { payload: object }) => {
 	return createJWT({ payload, lifetime: "1d" });
 };
 
-export const isTokenValid = (token: string) => {
-	return jwt.verify(token, process.env.JWT_SECRET);
+export const isTokenValid = (token: string): any => {
+	return jwt.verify(token, process.env.JWT_SECRET as string);
 };
 
 export const attachCookiesToResponse = (

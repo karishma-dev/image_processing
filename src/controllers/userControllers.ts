@@ -4,6 +4,8 @@ import {
 	UserByIdInput,
 } from "../validators/userValidator";
 import prisma from "../utils/client";
+import { StatusCodes } from "http-status-codes";
+import * as CustomError from "../errors";
 
 export const editUser = async (req: Request, res: Response) => {
 	const { id, name, email, occupation, bio } =
@@ -20,13 +22,10 @@ export const editUser = async (req: Request, res: Response) => {
 	});
 
 	if (!user) {
-		res.status(404).json({
-			message: "User not found",
-		});
-		return;
+		throw new CustomError.NotFoundError("User not found");
 	}
 
-	res.status(200).json({
+	res.status(StatusCodes.OK).json({
 		message: "User profile updated successfully",
 		data: {
 			user,
@@ -42,13 +41,10 @@ export const getUserById = async (req: Request, res: Response) => {
 		where: { id },
 	});
 	if (!user) {
-		res.status(404).json({
-			message: "User not found",
-		});
-		return;
+		throw new CustomError.NotFoundError("User not found");
 	}
 
-	res.status(200).json({
+	res.status(StatusCodes.OK).json({
 		message: "User retrieved successfully",
 		data: {
 			user,
@@ -65,13 +61,10 @@ export const deleteUser = async (req: Request, res: Response) => {
 	});
 
 	if (!user) {
-		res.status(404).json({
-			message: "User not found",
-		});
-		return;
+		throw new CustomError.NotFoundError("User not found");
 	}
 
-	res.status(200).json({
+	res.status(StatusCodes.OK).json({
 		message: "User deleted successfully",
 	});
 	return;
@@ -88,7 +81,7 @@ export const getUsers = async (req: Request, res: Response) => {
 		},
 	});
 
-	res.status(200).json({
+	res.status(StatusCodes.OK).json({
 		message: "Users retrieved successfully",
 		data: {
 			users,

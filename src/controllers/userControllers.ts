@@ -8,8 +8,7 @@ import { StatusCodes } from "http-status-codes";
 import * as CustomError from "../errors";
 
 export const editUser = async (req: Request, res: Response) => {
-	const { id, name, email, occupation, bio } =
-		req.body as UpdateUserProfileInput;
+	const { id, name, email, occupation } = req.body as UpdateUserProfileInput;
 
 	const user = await prisma.user.update({
 		where: { id },
@@ -17,7 +16,6 @@ export const editUser = async (req: Request, res: Response) => {
 			name,
 			email,
 			occupation,
-			bio,
 		},
 	});
 
@@ -77,7 +75,6 @@ export const getUsers = async (req: Request, res: Response) => {
 			name: true,
 			email: true,
 			occupation: true,
-			bio: true,
 		},
 	});
 

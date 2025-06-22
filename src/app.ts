@@ -1,5 +1,5 @@
 import "dotenv/config";
-import express, { Request, Response } from "express";
+import express from "express";
 import morgan from "morgan";
 import rateLimit from "express-rate-limit";
 import cors from "cors";
@@ -8,21 +8,16 @@ import hpp from "hpp";
 import bodyParser from "body-parser";
 import compression from "compression";
 import cookieParser from "cookie-parser";
-import multer from "multer";
 
 import notFound from "./middleware/not-found";
 import { sanitizeMiddleware } from "./middleware/sanitize";
 import errorHandlerMiddleware from "./middleware/error-handler";
 
 import authRouter from "./routes/authRoutes";
+import imageRouter from "./routes/imageRoutes";
 
 const port = process.env.PORT || 3000;
 
-const upload = multer({
-	storage: multer.memoryStorage(),
-	limits: { fileSize: 10 * 1024 * 1024 }, // Limit file size to 10MB
-	dest: "uploads/",
-});
 const app = express();
 
 const limiter = rateLimit({
@@ -68,22 +63,9 @@ app.use(compression());
 app.get("/", (req, res) => {
 	res.send("Hello, World!");
 });
-app.post("/upload", upload.single("file"), (req: any, res: any) => {
-	if (!req.file) {
-		return res.status(400).json({ error: "No file uploaded." });
-	}
-	res.status(200).json({
-		message: "File uploaded successfully.",
-		file: {
-			filename: req.file.originalname,
-			size: req.file.size,
-			mimetype: req.file.mimetype,
-			buffer: req.file.buffer.toString("base64"), // Convert buffer to base64 string for JSON response
-		},
-	});
-});
 
 app.use("/api/v1/auth", authRouter);
+app.use("/api/v1/images", imageRouter);
 
 app.use(notFound);
 app.use(errorHandlerMiddleware);

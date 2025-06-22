@@ -15,7 +15,7 @@ model User {
   password  String
   occupation Occupation @default(OTHER)
   tokens    Token[]
-  bio       String?
+  images Image[]
   isVerified Boolean @default(false)
   verificationToken String? @unique
   verificationTokenExpiresAt DateTime?
@@ -38,6 +38,20 @@ model Token {
   user User @relation(fields: [userId], references: [id])
   refreshToken String @unique
   isValid Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Image {
+  id String @id @default(cuid())
+  userId String
+  user User @relation(fields: [userId], references: [id])
+  url String
+  description String?
+  size Int
+  width Int
+  height Int
+  originalImageUrl String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

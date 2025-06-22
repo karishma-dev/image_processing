@@ -6,7 +6,6 @@ export const userProfileSchema = z.object({
 	name: z.string().min(1, "Name is required"),
 	email: z.string().email("Invalid email address"),
 	occupation: OccupationEnum.optional().default("OTHER"),
-	bio: z.string().optional(),
 });
 
 export const updateUserProfileSchema = userProfileSchema.partial();

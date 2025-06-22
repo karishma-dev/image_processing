@@ -5,19 +5,18 @@ import prisma from "../utils/client";
 
 interface AccessTokenPayload {
 	user: { id: string };
-	iat?: number;
-	exp?: number;
 }
 
 interface RefreshTokenPayload {
 	user: { id: string };
 	refreshToken: string;
-	iat?: number;
-	exp?: number;
+}
+interface CustomRequest extends Request {
+	user?: { id: string };
 }
 
 export const authenticateUser = async (
-	req: Request,
+	req: CustomRequest,
 	res: Response,
 	next: NextFunction
 ) => {

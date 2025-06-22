@@ -55,6 +55,7 @@ export const attachCookiesToResponse = (
 		signed: true,
 		expires: new Date(Date.now() + oneDay),
 		maxAge: oneDay,
+		sameSite: "lax",
 	});
 
 	res.cookie("refreshToken", refreshTokenJWT, {
@@ -63,5 +64,6 @@ export const attachCookiesToResponse = (
 		signed: true,
 		expires: new Date(Date.now() + oneMonth),
 		maxAge: oneMonth,
+		sameSite: "lax",
 	});
 };

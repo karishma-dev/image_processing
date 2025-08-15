@@ -8,17 +8,27 @@ import hpp from "hpp";
 import bodyParser from "body-parser";
 import compression from "compression";
 import cookieParser from "cookie-parser";
+import { ExpressAdapter } from "@bull-board/express";
+import { createBullBoard } from "@bull-board/api";
+import { BullMQAdapter } from "@bull-board/api/bullMQAdapter";
 
+import { specs, swaggerUi } from "./swagger";
 import notFound from "./middleware/not-found";
 import { sanitizeMiddleware } from "./middleware/sanitize";
 import errorHandlerMiddleware from "./middleware/error-handler";
 
 import authRouter from "./routes/authRoutes";
 import imageRouter from "./routes/imageRoutes";
+import { imageQueue } from "./queues/imageQueue";
 
 const port = process.env.PORT || 3000;
+const s3Domain =
+	process.env.S3_BUCKET_NAME && process.env.AWS_REGION
+		? `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com`
+		: undefined;
 
 const app = express();
+const serverAdapter = new ExpressAdapter();
 
 const limiter = rateLimit({
 	windowMs: 15 * 60 * 1000, // 15 minutes
@@ -47,7 +57,7 @@ app.use(
 		contentSecurityPolicy: {
 			directives: {
 				defaultSrc: ["'self'"],
-				// imgSrc: ["'self'", "data:", "blob:", process.env.S3_BUCKET_DOMAIN],
+				imgSrc: ["'self'", "data:", "blob:", ...(s3Domain ? [s3Domain] : [])],
 			},
 		},
 	})
@@ -60,6 +70,22 @@ app.use(express.json());
 app.use(sanitizeMiddleware);
 app.use(compression());
 
+createBullBoard({
+	queues: [new BullMQAdapter(imageQueue)],
+	serverAdapter,
+});
+serverAdapter.setBasePath("/admin/queues");
+app.use("/admin/queues", serverAdapter.getRouter());
+app.use(
+	"/api-docs",
+	swaggerUi.serve,
+	swaggerUi.setup(specs, {
+		explorer: true,
+		customCss: ".swagger-ui .topbar { display: none }",
+		customSiteTitle: "Image Processing API Docs",
+		customfavIcon: "/favicon.ico",
+	})
+);
 app.get("/", (req, res) => {
 	res.send("Hello, World!");
 });

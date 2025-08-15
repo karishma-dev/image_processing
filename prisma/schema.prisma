@@ -46,12 +46,13 @@ model Image {
   id String @id @default(cuid())
   userId String
   user User @relation(fields: [userId], references: [id])
-  url String
   description String?
+  key String
   size Int
   width Int
   height Int
   originalImageUrl String?
+  status String @default("uploaded")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

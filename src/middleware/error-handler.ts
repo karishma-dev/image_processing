@@ -1,9 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
-
-interface CustomError extends Error {
-	statusCode?: number;
-}
+import { CustomError } from "../types/common";
 
 const errorHandlerMiddleware = (
 	err: CustomError,

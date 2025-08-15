@@ -64,7 +64,7 @@ export const register = async (req: Request, res: Response) => {
 };
 
 export const verifyEmail = async (req: Request, res: Response) => {
-	const { token } = req.params as VerifyEmailInput;
+	const { token } = req.body as VerifyEmailInput;
 
 	const user = await prisma.user.findUnique({
 		where: {

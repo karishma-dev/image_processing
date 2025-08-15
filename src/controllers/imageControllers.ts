@@ -2,16 +2,18 @@ import { Request, Response } from "express";
 import prisma from "../utils/client";
 import { StatusCodes } from "http-status-codes";
 import * as CustomError from "../errors";
-import { rotateImageService } from "../services/sharp/rotate";
-import { flipImageService } from "../services/sharp/flip";
-import { mirrorImageService } from "../services/sharp/mirror";
-import { changeImageFormatService } from "../services/sharp/changeFormat";
 import { CustomRequest } from "../types/common";
 import { v4 as uuidv4 } from "uuid";
 import path from "path";
 import { createPresignedPost } from "@aws-sdk/s3-presigned-post";
 import { HeadObjectCommand, S3Client } from "@aws-sdk/client-s3";
-import { addResizeJob } from "../queues/imageQueue";
+import {
+	addResizeJob,
+	changeImageFormatJob,
+	flipImageJob,
+	mirrorImageJob,
+	rotateImageJob,
+} from "../queues/imageQueue";
 
 const s3 = new S3Client({ region: process.env.AWS_REGION });
 
@@ -140,8 +142,10 @@ export const resizeImage = async (req: Request, res: Response) => {
 	await addResizeJob({
 		key: image.key,
 		imageId: image.id,
-		width: width,
-		height: height,
+		operationData: {
+			width: width,
+			height: height,
+		},
 		userId: image.userId,
 	});
 	res.status(StatusCodes.ACCEPTED).json({
@@ -154,242 +158,130 @@ export const resizeImage = async (req: Request, res: Response) => {
 	return;
 };
 
-// export const rotateImage = async (req: Request, res: Response) => {
-// 	const { id, degree } = req.body;
+export const rotateImage = async (req: Request, res: Response) => {
+	const { id, degree } = req.body;
 
-// 	const image = await prisma.image.findUnique({
-// 		where: {
-// 			id,
-// 		},
-// 	});
+	const image = await prisma.image.findUnique({
+		where: {
+			id,
+		},
+	});
 
-// 	if (!image) {
-// 		throw new CustomError.NotFoundError("Image not found!");
-// 	}
+	if (!image) {
+		throw new CustomError.NotFoundError("Image not found!");
+	}
 
-// 	const inputPath = image.url;
-// 	const outputPath = `uploads/modified-${image.id}.jpg`;
+	await rotateImageJob({
+		key: image.key,
+		imageId: image.id,
+		operationData: {
+			degree: degree,
+		},
+		userId: image.userId,
+	});
 
-// 	const { success, message } = await rotateImageService(
-// 		inputPath,
-// 		outputPath,
-// 		degree
-// 	);
-// 	if (success) {
-// 		const updatedImage = await prisma.image.update({
-// 			where: {
-// 				id,
-// 			},
-// 			data: {
-// 				url: outputPath,
-// 			},
-// 		});
-// 		res.status(StatusCodes.OK).json({
-// 			status: "success",
-// 			data: {
-// 				image: updatedImage,
-// 			},
-// 		});
-// 		return;
-// 	} else {
-// 		throw new CustomError.InternalServerError(message);
-// 	}
-// };
+	res.status(StatusCodes.ACCEPTED).json({
+		status: "accepted",
+		message: "Rotate job enqueued. Processing will happen in the background.",
+		data: {
+			imageId: id,
+		},
+	});
+	return;
+};
 
-// export const watermarkImage = async (req: Request, res: Response) => {
-// 	// const files = req.files as
-// 	// 	| {
-// 	// 			[fieldName: string]: Express.Multer.File[];
-// 	// 	  }
-// 	// 	| undefined;
-// };
+export const flipImage = async (req: Request, res: Response) => {
+	const { id } = req.body;
 
-// export const flipImage = async (req: Request, res: Response) => {
-// 	const { id } = req.body;
+	const image = await prisma.image.findUnique({
+		where: {
+			id,
+		},
+	});
 
-// 	const image = await prisma.image.findUnique({
-// 		where: {
-// 			id,
-// 		},
-// 	});
+	if (!image) {
+		throw new CustomError.NotFoundError("Image not found!");
+	}
 
-// 	if (!image) {
-// 		throw new CustomError.NotFoundError("Image not found!");
-// 	}
+	await flipImageJob({
+		key: image.key,
+		imageId: image.id,
+		userId: image.userId,
+	});
 
-// 	const inputPath = image.url;
-// 	const outputPath = `uploads/modified-${image.id}.jpg`;
+	res.status(StatusCodes.ACCEPTED).json({
+		status: "accepted",
+		message:
+			"Flip Image job enqueued. Processing will happen in the background.",
+		data: {
+			imageId: id,
+		},
+	});
+	return;
+};
 
-// 	const { success, message } = await flipImageService(inputPath, outputPath);
-// 	if (success) {
-// 		const updatedImage = await prisma.image.update({
-// 			where: {
-// 				id,
-// 			},
-// 			data: {
-// 				url: outputPath,
-// 			},
-// 		});
-// 		res.status(StatusCodes.OK).json({
-// 			status: "success",
-// 			data: {
-// 				image: updatedImage,
-// 			},
-// 		});
-// 		return;
-// 	} else {
-// 		throw new CustomError.InternalServerError(message);
-// 	}
-// };
+export const mirrorImage = async (req: Request, res: Response) => {
+	const { id } = req.body;
 
-// export const mirrorImage = async (req: Request, res: Response) => {
-// 	const { id } = req.body;
+	const image = await prisma.image.findUnique({
+		where: {
+			id,
+		},
+	});
 
-// 	const image = await prisma.image.findUnique({
-// 		where: {
-// 			id,
-// 		},
-// 	});
+	if (!image) {
+		throw new CustomError.NotFoundError("Image not found!");
+	}
 
-// 	if (!image) {
-// 		throw new CustomError.NotFoundError("Image not found!");
-// 	}
+	await mirrorImageJob({
+		key: image.key,
+		imageId: image.id,
+		userId: image.userId,
+	});
 
-// 	const inputPath = image.url;
-// 	const outputPath = `uploads/modified-${image.id}.jpg`;
+	res.status(StatusCodes.ACCEPTED).json({
+		status: "accepted",
+		message:
+			"Mirror Image job enqueued. Processing will happen in the background.",
+		data: {
+			imageId: id,
+		},
+	});
+	return;
+};
 
-// 	const { success, message } = await mirrorImageService(inputPath, outputPath);
-// 	if (success) {
-// 		const updatedImage = await prisma.image.update({
-// 			where: {
-// 				id,
-// 			},
-// 			data: {
-// 				url: outputPath,
-// 			},
-// 		});
-// 		res.status(StatusCodes.OK).json({
-// 			status: "success",
-// 			data: {
-// 				image: updatedImage,
-// 			},
-// 		});
-// 		return;
-// 	} else {
-// 		throw new CustomError.InternalServerError(message);
-// 	}
-// };
+export const changeImageFormat = async (req: Request, res: Response) => {
+	const { id, desiredFormat } = req.body;
 
-// export const grayscaleImage = async (req: Request, res: Response) => {
-// 	try {
-// 		// Logic to convert an image to grayscale
-// 		res
-// 			.status(200)
-// 			.json({ message: "Image converted to grayscale successfully" });
-// 	} catch (error) {
-// 		res.status(500).json({ error: "Failed to convert image to grayscale" });
-// 	}
-// };
-// export const invertImage = async (req: Request, res: Response) => {
-// 	try {
-// 		// Logic to invert the colors of an image
-// 		res.status(200).json({ message: "Image colors inverted successfully" });
-// 	} catch (error) {
-// 		res.status(500).json({ error: "Failed to invert image colors" });
-// 	}
-// };
-// export const adjustBrightness = async (req: Request, res: Response) => {
-// 	try {
-// 		// Logic to adjust the brightness of an image
-// 		res.status(200).json({ message: "Image brightness adjusted successfully" });
-// 	} catch (error) {
-// 		res.status(500).json({ error: "Failed to adjust image brightness" });
-// 	}
-// };
-// export const adjustContrast = async (req: Request, res: Response) => {
-// 	try {
-// 		// Logic to adjust the contrast of an image
-// 		res.status(200).json({ message: "Image contrast adjusted successfully" });
-// 	} catch (error) {
-// 		res.status(500).json({ error: "Failed to adjust image contrast" });
-// 	}
-// };
-// export const sharpenImage = async (req: Request, res: Response) => {
-// 	try {
-// 		// Logic to sharpen an image
-// 		res.status(200).json({ message: "Image sharpened successfully" });
-// 	} catch (error) {
-// 		res.status(500).json({ error: "Failed to sharpen image" });
-// 	}
-// };
-// export const blurImage = async (req: Request, res: Response) => {
-// 	try {
-// 		// Logic to blur an image
-// 		res.status(200).json({ message: "Image blurred successfully" });
-// 	} catch (error) {
-// 		res.status(500).json({ error: "Failed to blur image" });
-// 	}
-// };
-// export const createThumbnail = async (req: Request, res: Response) => {
-// 	try {
-// 		// Logic to create a thumbnail of an image
-// 		res.status(200).json({ message: "Thumbnail created successfully" });
-// 	} catch (error) {
-// 		res.status(500).json({ error: "Failed to create thumbnail" });
-// 	}
-// };
-// export const compressImage = async (req: Request, res: Response) => {
-// 	try {
-// 		// Logic to compress an image
-// 		res.status(200).json({ message: "Image compressed successfully" });
-// 	} catch (error) {
-// 		res.status(500).json({ error: "Failed to compress image" });
-// 	}
-// };
+	const image = await prisma.image.findUnique({
+		where: {
+			id,
+		},
+	});
 
-// export const changeImageFormat = async (req: Request, res: Response) => {
-// 	const { id, desiredFormat } = req.body;
+	if (!image) {
+		throw new CustomError.NotFoundError("Image not found!");
+	}
 
-// 	const image = await prisma.image.findUnique({
-// 		where: {
-// 			id,
-// 		},
-// 	});
+	await changeImageFormatJob({
+		key: image.key,
+		imageId: image.id,
+		userId: image.userId,
+		operationData: {
+			desiredFormat,
+		},
+	});
 
-// 	if (!image) {
-// 		throw new CustomError.NotFoundError("Image not found!");
-// 	}
-
-// 	const inputPath = image.url;
-// 	const outputPath = `uploads/modified-${image.id}.jpg`;
-
-// 	const { success, message } = await changeImageFormatService(
-// 		inputPath,
-// 		outputPath,
-// 		desiredFormat
-// 	);
-
-// 	if (success) {
-// 		const updatedImage = await prisma.image.update({
-// 			where: {
-// 				id,
-// 			},
-// 			data: {
-// 				url: outputPath,
-// 			},
-// 		});
-
-// 		res.status(StatusCodes.OK).json({
-// 			status: "success",
-// 			data: {
-// 				image: updatedImage,
-// 			},
-// 		});
-// 		return;
-// 	} else {
-// 		throw new CustomError.InternalServerError(message);
-// 	}
-// };
+	res.status(StatusCodes.ACCEPTED).json({
+		status: "accepted",
+		message:
+			"Change Format Image job enqueued. Processing will happen in the background.",
+		data: {
+			imageId: id,
+		},
+	});
+	return;
+};
 
 export const getImageById = async (req: Request, res: Response) => {
 	const { id } = req.params;
@@ -430,12 +322,3 @@ export const deleteImageById = async (req: Request, res: Response) => {
 	});
 	return;
 };
-
-// export const cropImage = async (req: Request, res: Response) => {
-// 	try {
-// 		// Logic to crop an image
-// 		res.status(200).json({ message: "Image cropped successfully" });
-// 	} catch (error) {
-// 		res.status(500).json({ error: "Failed to crop image" });
-// 	}
-// };

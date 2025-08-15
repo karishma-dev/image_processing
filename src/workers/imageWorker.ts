@@ -7,6 +7,10 @@ import { Worker } from "bullmq";
 import IORedis from "ioredis";
 import { resizeImageService } from "../services/sharp/resize";
 import prisma from "../utils/client";
+import { rotateImageService } from "../services/sharp/rotate";
+import { mirrorImageService } from "../services/sharp/mirror";
+import { flipImageService } from "../services/sharp/flip";
+import { changeImageFormatService } from "../services/sharp/changeFormat";
 
 const s3 = new S3Client({
 	region: process.env.AWS_REGION,
@@ -18,8 +22,8 @@ const connection = new IORedis({
 const worker = new Worker(
 	"image-queue",
 	async (job) => {
-		const { key, imageId, width, height, userId } = job.data;
 		console.log("Processing job: ", job.data);
+		const { key, imageId, operationData, userId } = job.data;
 
 		// INFO: Download image from s3 as a stream, it returns s3Response.Body, which is a readable stream
 		const s3Response = await s3.send(
@@ -31,25 +35,57 @@ const worker = new Worker(
 
 		// INFO: Converts stream to buffer, so it can be used in sharp
 		const originalBuffer = await streamToBuffer(s3Response.Body);
+		let optimizedBuffer = null;
+		let updatedData: {
+			width?: number;
+			height?: number;
+		} = {};
 
-		const resizedBuffer = await resizeImageService(
-			originalBuffer,
-			width,
-			height
-		);
-
-		if (!resizedBuffer.success || !resizedBuffer.data) {
-			throw new Error(resizedBuffer.message);
+		switch (job.name) {
+			case "image:resize":
+				optimizedBuffer = await resizeImageService(
+					originalBuffer,
+					operationData.width,
+					operationData.height
+				);
+				updatedData.width = operationData.width;
+				updatedData.height = operationData.height;
+				break;
+			case "image:rotate":
+				optimizedBuffer = await rotateImageService(
+					originalBuffer,
+					operationData.degree
+				);
+				break;
+			case "image:mirror":
+				optimizedBuffer = await mirrorImageService(originalBuffer);
+				break;
+			case "image:flip":
+				optimizedBuffer = await flipImageService(originalBuffer);
+				break;
+			case "image:format":
+				optimizedBuffer = await changeImageFormatService(
+					originalBuffer,
+					operationData.desiredFormat
+				);
+				break;
+			default:
+				break;
 		}
 
-		const resizedKey = `uploads/${imageId}/resized-${width}*${height}.jpg`;
+		if (!optimizedBuffer) {
+			throw new Error("Out of scope job");
+		}
+		if (!optimizedBuffer.success || !optimizedBuffer.data) {
+			throw new Error(optimizedBuffer.message);
+		}
 
 		// INFO: Upload the resized image buffer back to S3
 		await s3.send(
 			new PutObjectCommand({
 				Bucket: process.env.S3_BUCKET_NAME,
-				Key: resizedKey,
-				Body: resizedBuffer.data,
+				Key: key,
+				Body: optimizedBuffer.data,
 				ContentType: "image/jpeg",
 				Metadata: {
 					userId: userId,
@@ -62,14 +98,12 @@ const worker = new Worker(
 				id: imageId,
 			},
 			data: {
-				key: resizedKey,
-				width,
-				height,
+				...updatedData,
 				status: "processed",
 			},
 		});
 
-		console.log(`${resizedKey} resized successfully`);
+		console.log(`${key} resized successfully`);
 	},
 	{
 		connection,

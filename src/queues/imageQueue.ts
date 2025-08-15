@@ -24,3 +24,51 @@ export const addResizeJob = async (payload: any) => {
 		removeOnFail: false,
 	});
 };
+
+export const rotateImageJob = async (payload: any) => {
+	return imageQueue.add("image:rotate", payload, {
+		attempts: 3,
+		backoff: {
+			type: "exponential",
+			delay: 500,
+		},
+		removeOnComplete: true,
+		removeOnFail: false,
+	});
+};
+
+export const mirrorImageJob = async (payload: any) => {
+	return imageQueue.add("image:mirror", payload, {
+		attempts: 3,
+		backoff: {
+			type: "exponential",
+			delay: 500,
+		},
+		removeOnComplete: true,
+		removeOnFail: false,
+	});
+};
+
+export const flipImageJob = async (payload: any) => {
+	return imageQueue.add("image:flip", payload, {
+		attempts: 3,
+		backoff: {
+			type: "exponential",
+			delay: 500,
+		},
+		removeOnComplete: true,
+		removeOnFail: false,
+	});
+};
+
+export const changeImageFormatJob = async (payload: any) => {
+	return imageQueue.add("image:format", payload, {
+		attempts: 3,
+		backoff: {
+			type: "exponential",
+			delay: 500,
+		},
+		removeOnComplete: true,
+		removeOnFail: false,
+	});
+};

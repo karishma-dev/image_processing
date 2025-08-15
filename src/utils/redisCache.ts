@@ -1,8 +1,7 @@
 import IORedis from "ioredis";
 
-export const redis = new IORedis(
-	process.env.REDIS_URL || "redis://localhost:6379"
-);
+export const redisURL = process.env.REDIS_URL || "redis://localhost:6379";
+export const redis = new IORedis(redisURL);
 
 export const getCache = async <T = any>(key: string): Promise<T | null> => {
 	const cached = await redis.get(key);

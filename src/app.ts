@@ -1,4 +1,5 @@
 import "dotenv/config";
+import http from "http";
 import express from "express";
 import morgan from "morgan";
 import rateLimit from "express-rate-limit";
@@ -20,6 +21,7 @@ import errorHandlerMiddleware from "./middleware/error-handler";
 import authRouter from "./routes/authRoutes";
 import imageRouter from "./routes/imageRoutes";
 import { imageQueue } from "./queues/imageQueue";
+import { initializeWebsocket } from "./websockets";
 
 const port = process.env.PORT || 3000;
 const s3Domain =
@@ -29,11 +31,18 @@ const s3Domain =
 
 const app = express();
 const serverAdapter = new ExpressAdapter();
+const server = http.createServer(app);
+initializeWebsocket(server);
 
 const limiter = rateLimit({
 	windowMs: 15 * 60 * 1000, // 15 minutes
 	max: 100, // Limit each IP to 100 requests per windowMs
 	message: "Too many requests from this IP, please try again later.",
+});
+const authLimiter = rateLimit({
+	windowMs: 15 * 60 * 1000,
+	max: 10,
+	message: "Too many login attempts, please try again later.",
 });
 
 app.disable("x-powered-by");
@@ -41,6 +50,7 @@ app.set("trust proxy", 1); // Trust first proxy for rate limiting
 
 app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
 app.use(limiter);
+app.use("/api/v1/auth/login", authLimiter);
 app.use(
 	cors({
 		origin:
@@ -59,6 +69,9 @@ app.use(
 				defaultSrc: ["'self'"],
 				imgSrc: ["'self'", "data:", "blob:", ...(s3Domain ? [s3Domain] : [])],
 			},
+		},
+		referrerPolicy: {
+			policy: "no-referrer",
 		},
 	})
 );
@@ -89,6 +102,12 @@ app.use(
 app.get("/", (req, res) => {
 	res.send("Hello, World!");
 });
+app.get("/health", (req, res) => {
+	res.status(200).json({
+		status: "ok",
+		uptime: process.uptime(),
+	});
+});
 
 app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/images", imageRouter);
@@ -96,6 +115,6 @@ app.use("/api/v1/images", imageRouter);
 app.use(notFound);
 app.use(errorHandlerMiddleware);
 
-app.listen(port, () => {
+server.listen(port, () => {
 	console.log(`Server is running on http://localhost:${port}`);
 });

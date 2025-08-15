@@ -13,6 +13,7 @@ import { flipImageService } from "../services/sharp/flip";
 import { changeImageFormatService } from "../services/sharp/changeFormat";
 import sharp from "sharp";
 import { allImageChangesService } from "../services/sharp/allImageChanges";
+import { pub } from "../websockets/pubsub";
 
 sharp.concurrency(2); // Meaning???
 
@@ -134,9 +135,28 @@ async function streamToBuffer(stream: any): Promise<Buffer> {
 }
 
 worker.on("completed", (job) => {
+	const { key, imageId, operationData, userId } = job.data;
 	console.log(`${job.data.key} has completed!`);
+	pub.publish(
+		`user:${userId}:events`,
+		JSON.stringify({
+			type: "image-processed",
+			imageId,
+			status: "processed",
+		})
+	);
 });
 
 worker.on("failed", (job, err) => {
+	const { key, imageId, operationData, userId } = job?.data;
 	console.log(`${job?.data.key} has failed with ${err.message}`);
+
+	pub.publish(
+		`user:${userId}:events`,
+		JSON.stringify({
+			type: "image-failed",
+			imageId,
+			error: err.message,
+		})
+	);
 });

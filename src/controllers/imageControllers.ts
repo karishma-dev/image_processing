@@ -9,11 +9,13 @@ import { createPresignedPost } from "@aws-sdk/s3-presigned-post";
 import { HeadObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import {
 	addResizeJob,
+	allOperationsOnImageJob,
 	changeImageFormatJob,
 	flipImageJob,
 	mirrorImageJob,
 	rotateImageJob,
 } from "../queues/imageQueue";
+import { cacheOrFetch, deleteMultipleKeys, redis } from "../utils/redisCache";
 
 const s3 = new S3Client({ region: process.env.AWS_REGION });
 
@@ -22,13 +24,20 @@ export const getAllImages = async (req: CustomRequest, res: Response) => {
 		throw new CustomError.UnauthenticatedError("Please login.");
 	}
 
-	const images = await prisma.image.findMany({
-		where: {
-			userId: req.user?.id,
-		},
-		orderBy: {
-			createdAt: "desc",
-		},
+	const { status, userId } = req.body;
+
+	const cacheKey = `images:${userId || req.user.id}:${status || ""}`;
+
+	const images = await cacheOrFetch(cacheKey, async () => {
+		return await prisma.image.findMany({
+			where: {
+				userId: userId ? userId : req.user?.id,
+				status,
+			},
+			orderBy: {
+				createdAt: "desc",
+			},
+		});
 	});
 
 	if (!images || images.length === 0) {
@@ -80,7 +89,7 @@ export const presignUpload = async (req: CustomRequest, res: Response) => {
 export const confirmUpload = async (req: CustomRequest, res: Response) => {
 	if (!req.user) throw new CustomError.UnauthenticatedError("Please login!");
 
-	const { key, originalName, width, height } = req.body;
+	const { key, width, height } = req.body;
 	if (!key) throw new CustomError.BadRequest("Missing key");
 
 	const head = await s3.send(
@@ -104,13 +113,10 @@ export const confirmUpload = async (req: CustomRequest, res: Response) => {
 		throw new CustomError.BadRequest("Uploaded file too large");
 	}
 
-	// const s3Url = `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
-
 	const image = await prisma.image.create({
 		data: {
 			userId: req.user.id,
 			size: Number(head.ContentLength || 0),
-			originalImageUrl: originalName || key,
 			width: width || 0,
 			height: height || 0,
 			key: key,
@@ -283,12 +289,52 @@ export const changeImageFormat = async (req: Request, res: Response) => {
 	return;
 };
 
-export const getImageById = async (req: Request, res: Response) => {
-	const { id } = req.params;
+export const allOperationsOnImage = async (req: Request, res: Response) => {
+	const { id, desiredFormat, width, height, degree } = req.body;
+
 	const image = await prisma.image.findUnique({
 		where: {
 			id,
 		},
+	});
+
+	if (!image) {
+		throw new CustomError.NotFoundError("Image not found!");
+	}
+
+	await allOperationsOnImageJob({
+		key: image.key,
+		imageId: image.id,
+		userId: image.userId,
+		operationData: {
+			desiredFormat,
+			width,
+			height,
+			degree,
+		},
+	});
+
+	res.status(StatusCodes.ACCEPTED).json({
+		status: "accepted",
+		message:
+			"All Operations on Image job enqueued. Processing will happen in the background.",
+		data: {
+			imageId: id,
+		},
+	});
+	return;
+};
+
+export const getImageById = async (req: Request, res: Response) => {
+	const { id } = req.params;
+	const cacheKey = `images:${id}`;
+
+	const image = await cacheOrFetch(cacheKey, async () => {
+		return await prisma.image.findUnique({
+			where: {
+				id,
+			},
+		});
 	});
 	if (!image) {
 		throw new CustomError.NotFoundError("Image not found!");
@@ -314,6 +360,9 @@ export const deleteImageById = async (req: Request, res: Response) => {
 	if (!image) {
 		throw new CustomError.NotFoundError("Image not found!");
 	}
+	await redis.del(`images:${id}`);
+	await deleteMultipleKeys(`images:${image.userId}:*`);
+
 	res.status(StatusCodes.OK).json({
 		status: "success",
 		data: {

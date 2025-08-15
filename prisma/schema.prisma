@@ -51,8 +51,11 @@ model Image {
   size Int
   width Int
   height Int
-  originalImageUrl String?
+  metadata Json?
   status String @default("uploaded")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([status])
 }

@@ -10,6 +10,7 @@ import {
 	flipImage,
 	mirrorImage,
 	changeImageFormat,
+	allOperationsOnImage,
 } from "../controllers/imageControllers";
 import { authenticateUser } from "../middleware/authentication";
 import { validateRequest } from "../middleware/validateRequest";
@@ -32,6 +33,7 @@ routes.post("/rotate", authenticateUser, rotateImage);
 routes.post("/flip", authenticateUser, flipImage);
 routes.post("/mirror", authenticateUser, mirrorImage);
 routes.post("/changeFormat", authenticateUser, changeImageFormat);
+routes.post("/allOperations", authenticateUser, allOperationsOnImage);
 
 routes
 	.route("/:id")

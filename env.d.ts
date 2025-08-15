@@ -10,6 +10,7 @@ declare namespace NodeJS {
 		SMTP_USER: string;
 		SMTP_FROM: string;
 		SMTP_PASS: string;
+		REDIS_URL: string;
 
 		S3_BUCKET_NAME: string;
 		AWS_ACCESS_KEY_ID: string;

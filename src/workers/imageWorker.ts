@@ -11,6 +11,10 @@ import { rotateImageService } from "../services/sharp/rotate";
 import { mirrorImageService } from "../services/sharp/mirror";
 import { flipImageService } from "../services/sharp/flip";
 import { changeImageFormatService } from "../services/sharp/changeFormat";
+import sharp from "sharp";
+import { allImageChangesService } from "../services/sharp/allImageChanges";
+
+sharp.concurrency(2); // Meaning???
 
 const s3 = new S3Client({
 	region: process.env.AWS_REGION,
@@ -69,6 +73,15 @@ const worker = new Worker(
 					operationData.desiredFormat
 				);
 				break;
+			case "image:allOperations":
+				optimizedBuffer = await allImageChangesService(
+					originalBuffer,
+					operationData.desiredFormat,
+					operationData.width,
+					operationData.height,
+					operationData.degree
+				);
+				break;
 			default:
 				break;
 		}
@@ -107,6 +120,7 @@ const worker = new Worker(
 	},
 	{
 		connection,
+		concurrency: 3,
 	}
 );
 

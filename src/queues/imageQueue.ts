@@ -72,3 +72,15 @@ export const changeImageFormatJob = async (payload: any) => {
 		removeOnFail: false,
 	});
 };
+
+export const allOperationsOnImageJob = async (payload: any) => {
+	return imageQueue.add("image:allOperations", payload, {
+		attempts: 3,
+		backoff: {
+			type: "exponential",
+			delay: 500,
+		},
+		removeOnComplete: true,
+		removeOnFail: false,
+	});
+};

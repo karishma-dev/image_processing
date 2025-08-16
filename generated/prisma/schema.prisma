@@ -1,0 +1,61 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                         String     @id @default(cuid())
+  email                      String     @unique
+  name                       String
+  password                   String
+  occupation                 Occupation @default(OTHER)
+  tokens                     Token[]
+  images                     Image[]
+  isVerified                 Boolean    @default(false)
+  verificationToken          String?    @unique
+  verificationTokenExpiresAt DateTime?
+  passwordToken              String?    @unique
+  passwordTokenExpiresAt     DateTime?
+  createdAt                  DateTime   @default(now())
+  updatedAt                  DateTime   @updatedAt
+}
+
+enum Occupation {
+  DEVELOPER
+  DESIGNER
+  MANAGER
+  OTHER
+}
+
+model Token {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+  refreshToken String   @unique
+  isValid      Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Image {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  description String?
+  key         String
+  size        Int
+  width       Int
+  height      Int
+  metadata    Json?
+  status      String   @default("uploaded")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([status])
+}

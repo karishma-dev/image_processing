@@ -6,6 +6,7 @@ import {
 import prisma from "../utils/client";
 import { StatusCodes } from "http-status-codes";
 import * as CustomError from "../errors";
+import { cacheOrFetch, deleteMultipleKeys, redis } from "../utils/redisCache";
 
 export const editUser = async (req: Request, res: Response) => {
 	const { id, name, email, occupation } = req.body as UpdateUserProfileInput;
@@ -22,6 +23,9 @@ export const editUser = async (req: Request, res: Response) => {
 	if (!user) {
 		throw new CustomError.NotFoundError("User not found");
 	}
+
+	await redis.del(`users:${id}`);
+	await deleteMultipleKeys(`users:*`);
 
 	res.status(StatusCodes.OK).json({
 		message: "User profile updated successfully",
@@ -62,6 +66,9 @@ export const deleteUser = async (req: Request, res: Response) => {
 		throw new CustomError.NotFoundError("User not found");
 	}
 
+	await redis.del(`users:${id}`);
+	await deleteMultipleKeys(`users:*`);
+
 	res.status(StatusCodes.OK).json({
 		message: "User deleted successfully",
 	});
@@ -69,13 +76,18 @@ export const deleteUser = async (req: Request, res: Response) => {
 };
 
 export const getUsers = async (req: Request, res: Response) => {
-	const users = await prisma.user.findMany({
-		select: {
-			id: true,
-			name: true,
-			email: true,
-			occupation: true,
-		},
+	const { email, name, occupation } = req.body;
+	const cacheKey = `users:${email}:${name}:${occupation}`;
+
+	const users = await cacheOrFetch(cacheKey, async () => {
+		return await prisma.user.findMany({
+			select: {
+				id: true,
+				name: true,
+				email: true,
+				occupation: true,
+			},
+		});
 	});
 
 	res.status(StatusCodes.OK).json({

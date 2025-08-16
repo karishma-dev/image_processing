@@ -1,15 +1,22 @@
 import sharp, { AvailableFormatInfo, FormatEnum } from "sharp";
 
-export const changeImageFormatService = async (
+export const allImageChangesService = async (
 	fileBuffer: Buffer<ArrayBufferLike>,
-	desiredFormat: keyof FormatEnum | AvailableFormatInfo
+	desiredFormat: keyof FormatEnum | AvailableFormatInfo,
+	width: number,
+	height: number,
+	degree: number
 ): Promise<{
 	success: boolean;
 	message: string;
 	data?: Buffer;
 }> => {
 	try {
-		const data = await sharp(fileBuffer).toFormat(desiredFormat).toBuffer();
+		const data = await sharp(fileBuffer)
+			.resize(width, height)
+			.rotate(degree)
+			.toFormat(desiredFormat)
+			.toBuffer();
 		return {
 			success: true,
 			message: "Image rotated successfully",

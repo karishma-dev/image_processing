@@ -1,33 +1,25 @@
-import fs from "fs";
 import sharp from "sharp";
 
 export const mirrorImageService = async (
-	inputPath: string,
-	outputPath: string
+	fileBuffer: Buffer<ArrayBufferLike>
 ): Promise<{
 	success: boolean;
 	message: string;
+	data?: Buffer;
 }> => {
-	const fileBuffer = fs.readFileSync(inputPath);
-
-	sharp(fileBuffer)
-		.flop() // Flip the image vertically
-		.toBuffer()
-		.then((data) => {
-			fs.writeFileSync(outputPath, data);
-			return {
-				success: true,
-				message: "Image flopped successfully",
-			};
-		})
-		.catch((err) => {
-			return {
-				success: false,
-				message: err.message,
-			};
-		});
-	return {
-		success: false,
-		message: "Something went wrong",
-	};
+	try {
+		const data = await sharp(fileBuffer)
+			.flop() // Flip the image vertically
+			.toBuffer();
+		return {
+			success: true,
+			message: "Image flipped successfully",
+			data,
+		};
+	} catch (error: any) {
+		return {
+			success: false,
+			message: error.message,
+		};
+	}
 };

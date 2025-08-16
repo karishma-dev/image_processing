@@ -28,7 +28,10 @@ export const createAccessToken = ({ payload }: { payload: object }) => {
 };
 
 export const isTokenValid = (token: string): any => {
-	return jwt.verify(token, process.env.JWT_SECRET as string);
+	const data = jwt.verify(token, process.env.JWT_SECRET as string);
+	return {
+		user: data,
+	};
 };
 
 export const attachCookiesToResponse = (

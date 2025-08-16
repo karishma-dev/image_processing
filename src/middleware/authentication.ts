@@ -2,18 +2,11 @@ import { NextFunction, Request, Response } from "express";
 import * as CustomError from "../errors";
 import { attachCookiesToResponse, isTokenValid } from "../utils/jwt";
 import prisma from "../utils/client";
-
-interface AccessTokenPayload {
-	user: { id: string };
-}
-
-interface RefreshTokenPayload {
-	user: { id: string };
-	refreshToken: string;
-}
-interface CustomRequest extends Request {
-	user?: { id: string };
-}
+import {
+	AccessTokenPayload,
+	CustomRequest,
+	RefreshTokenPayload,
+} from "../types/common";
 
 export const authenticateUser = async (
 	req: CustomRequest,

@@ -4,7 +4,6 @@ import {
 	S3Client,
 } from "@aws-sdk/client-s3";
 import { Worker } from "bullmq";
-import IORedis from "ioredis";
 import { resizeImageService } from "../services/sharp/resize";
 import prisma from "../utils/client";
 import { rotateImageService } from "../services/sharp/rotate";
@@ -14,14 +13,12 @@ import { changeImageFormatService } from "../services/sharp/changeFormat";
 import sharp from "sharp";
 import { allImageChangesService } from "../services/sharp/allImageChanges";
 import { pub } from "../websockets/pubsub";
+import { redisURL } from "../utils/redisCache";
 
 sharp.concurrency(2); // Meaning???
 
 const s3 = new S3Client({
 	region: process.env.AWS_REGION,
-});
-const connection = new IORedis({
-	maxRetriesPerRequest: null,
 });
 
 const worker = new Worker(
@@ -120,7 +117,7 @@ const worker = new Worker(
 		console.log(`${key} resized successfully`);
 	},
 	{
-		connection,
+		connection: { url: redisURL },
 		concurrency: 3,
 	}
 );
@@ -159,4 +156,21 @@ worker.on("failed", (job, err) => {
 			error: err.message,
 		})
 	);
+});
+
+worker.on("drained", () => {
+	console.log(`Job is drained`);
+});
+worker.on("active", (job) => {
+	console.log(`Job ${job.id} is now active`);
+});
+worker.on("error", (err) => {
+	console.error("Worker error:", err);
+});
+worker.on("stalled", (job) => {
+	console.log(`Job ${job} is stalled`);
+});
+
+worker.on("ready", () => {
+	console.log(`Job is ready`);
 });

@@ -41,16 +41,20 @@ const limiter = rateLimit({
 });
 const authLimiter = rateLimit({
 	windowMs: 15 * 60 * 1000,
-	max: 10,
-	message: "Too many login attempts, please try again later.",
+	max: 5,
+	message: "Too many attempts, please try again later.",
 });
 
 app.disable("x-powered-by");
 app.set("trust proxy", 1); // Trust first proxy for rate limiting
+app.set("X-Content-Type-Options", "nosniff"); // prevent MIME type sniffing by telling the browser to stick with the declared content-type
+app.set("X-Frame-Options", "deny"); // protect against clickjacking by preventing the site from being displayed in an iframe
 
 app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
-app.use(limiter);
 app.use("/api/v1/auth/login", authLimiter);
+app.use("/api/v1/auth/reset-password", authLimiter);
+app.use("/api/v1/auth/change-password", authLimiter);
+app.use(limiter);
 app.use(
 	cors({
 		origin:
@@ -66,7 +70,7 @@ app.use(
 	helmet({
 		contentSecurityPolicy: {
 			directives: {
-				defaultSrc: ["'self'"],
+				defaultSrc: ["'self'"], // prevents XXS attacks (cross-site scripting) by restricting the sources from which content can be loaded
 				imgSrc: ["'self'", "data:", "blob:", ...(s3Domain ? [s3Domain] : [])],
 			},
 		},
